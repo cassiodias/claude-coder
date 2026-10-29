@@ -11,12 +11,11 @@ test('work is counted by kind and every tool call scores', async () => {
 })
 
 test('a listed command seats the coder above the prompt and its tool calls show', { options: { commands: 'dev' } }, async ($, on) => {
-  on('skill.prompt', (_, e) => ({ text: e.text }))
   on('ui.close', () => ({ value: undefined }))
   on('tool.call', () => ({ result: {} }))
   mock.clock(on)
 
-  await $.skill.prompt({ skill: 'dev', text: '', frontmatter: {}, source: 'user' } as never)
+  await $.tool.call({ tool: 'Skill', skill: 'dev' })
   await $.tool.call({ tool: 'Bash', command: 'npm test' })
 
   for (const surface of ['terminal', 'desktop'] as const) {

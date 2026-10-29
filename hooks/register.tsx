@@ -73,6 +73,11 @@ function kindOf(e: ToolCallInput): Work {
   return 'other'
 }
 
+// A listed command starts when the person types it or Claude calls it through the Skill tool.
+async function begin($: EngineInterface, commands: Set<string>, name: string, display: Display) {
+  if (commands.has(name) && !(await read($, desk)).isLive) await sit($, sitDown(name, display))
+}
+
 export const register: Register = (on, options) => {
   const commands = new Set(
     String(options.commands ?? '')
@@ -92,13 +97,18 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  on('skill.prompt', async ($, e, next) => {
-    if (commands.has(e.skill) && !(await read($, desk)).isLive) await sit($, sitDown(e.skill, display))
+  on('prompt.submit', async ($, e, next) => {
+    if (e.command) await begin($, commands, e.command.name, display)
 
     return next(e)
   })
 
   on('tool.call', async ($, e, next) => {
+    if (e.tool === 'Skill') {
+      await begin($, commands, e.skill, display)
+
+      return next(e)
+    }
     await type($, kindOf(e))
 
     return next(e)
