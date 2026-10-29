@@ -76,6 +76,17 @@ claude plugin install puppet-coder --marketplace cassiodias/claude-coder
 
 In the desktop app, where `/plugin` does not run: click + next to the prompt box, then Plugins, Add marketplace with `cassiodias/claude-coder`, then Add plugin.
 
+## Update
+
+The `/plugin` menu has no update button. From a shell, fetch the new version from GitHub, then install it:
+
+```
+claude plugin marketplace update claude-coder
+claude plugin update puppet-coder@claude-coder
+```
+
+Then restart Claude Code: open sessions keep the old version until they start again.
+
 ## Uninstall
 
 From a shell:
