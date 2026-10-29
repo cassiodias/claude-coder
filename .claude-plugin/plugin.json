@@ -1,0 +1,22 @@
+{
+  "name": "puppet-coder",
+  "version": "0.1.0",
+  "description": "A Claude puppet with glasses codes on a laptop while a slash command you pick runs, its screen showing the real edits and runs",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "commands": {
+      "type": "string",
+      "title": "Commands that start the coder",
+      "description": "Slash commands or skills, comma separated, without the slash",
+      "default": ""
+    },
+    "display": {
+      "type": "string",
+      "title": "Where the coder sits",
+      "description": "band: a strip above the prompt that shows only while it codes; pane: a narrow pane beside the chat",
+      "options": ["band", "pane"],
+      "default": "band"
+    }
+  }
+}
