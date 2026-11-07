@@ -2,6 +2,8 @@
 
 A Claude Code mod: a Claude puppet sits at its laptop and plays Space Invaders above your prompt while a slash command you pick runs. Every tool call the command makes shoots an invader down.
 
+You can also play the game yourself: `/invaders` opens a playable Space Invaders in a pane, and Claude's tool calls join your game while you play.
+
 ```
 coder-demo · 4 edits · 3 runs · 2 reads
             ╭───────────────── 00006 ╮
@@ -62,6 +64,9 @@ Claude's work joins in while you play: each file it edits sends an invader, each
 
 You start with 3 lives, and each cleared wave comes back faster. In apps without a keyboard, tap the buttons.
 
+Running `/invaders` again while a game is on takes you back to it rather than starting over. If the pane is narrower than 38 columns, the game holds still until you widen it.
+
+## Options
 
 | Setting | Values | Default |
 | --- | --- | --- |
