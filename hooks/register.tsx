@@ -154,7 +154,7 @@ export const register: Register = (on, options) => {
     openGame($)
     await $.ui.open({ id: INVADERS, title: 'Invaders', focus: true, closeOnEscape: true, rows: 20 })
 
-    return { text: 'Invaders opened. a/d move, f fires, p pauses, Esc closes.' }
+    return { text: 'Invaders opened. a/s move, d fires, p pauses, Esc closes.' }
   })
 
   on('ui.close', { id: INVADERS }, async ($, e, next) => {

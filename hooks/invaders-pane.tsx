@@ -64,8 +64,9 @@ export function InvadersPane({
       ))}
       <Box flexDirection="row" gap={1}>
         <Button key="left" hotkey="a" plain label="◀" onPress={() => onPress('left')} />
-        <Button key="right" hotkey="d" plain label="▶" onPress={() => onPress('right')} />
-        <Button key="fire" hotkey="f" plain label="fire" onPress={() => onPress('fire')} />
+        <Button key="right" hotkey="s" plain label="▶" onPress={() => onPress('right')} />
+        {/* Fire also holds the focus, so Enter presses it too. */}
+        <Button key="fire" hotkey="d" autoFocus plain label="fire" onPress={() => onPress('fire')} />
         <Button
           key="pause"
           hotkey="p"

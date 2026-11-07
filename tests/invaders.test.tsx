@@ -36,7 +36,7 @@ test('/invaders opens a focused pane', async ($, on) => {
   const { opened } = engine(on)
   const ran = await play($)
   expect(opened[0]).toMatchObject({ id: 'invaders', focus: true, closeOnEscape: true })
-  expect(ran.text).toBe('Invaders opened. a/d move, f fires, p pauses, Esc closes.')
+  expect(ran.text).toBe('Invaders opened. a/s move, d fires, p pauses, Esc closes.')
 })
 
 for (const surface of SURFACES) {

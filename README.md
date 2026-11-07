@@ -52,8 +52,8 @@ Type `/invaders` to open a pane with a Space Invaders you play. The pane takes t
 | Key | Button | Does |
 | --- | --- | --- |
 | `a` | `◀` | move left |
-| `d` | `▶` | move right |
-| `f` | `fire` | fire |
+| `s` | `▶` | move right |
+| `d` | `fire` | fire |
 | `p` | `pause` | pause or resume |
 | `r` | `restart` | new game, after game over |
 | `Esc` | | close the pane and end the game |
