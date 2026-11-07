@@ -2,14 +2,13 @@ import type { Elements } from 'claude-code'
 
 import { cells } from './arcade'
 import type { Game } from './arcade'
-import { BOARD_COLUMNS } from './invaders-game'
+import { MIN_COLUMNS } from './invaders-game'
 import type { Press } from './invaders-game'
 
 // The /invaders pane: a header, the board, and a row of buttons whose hotkeys are the controls.
 
 type Ui = Elements['terminal' | 'desktop' | 'vscode' | 'mobile']
 
-const MIN_COLUMNS = BOARD_COLUMNS + 2
 const SHIP = '#D97757'
 const INVADER = '#8FD18B'
 const TOUGH = '#F2C14E'

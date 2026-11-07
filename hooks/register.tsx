@@ -6,7 +6,7 @@ import { Coder } from './components'
 import { NO_DESK, sitDown, standUp, work } from './desk'
 import type { Work } from './desk'
 import type { SpawnKind } from './arcade'
-import { current, feed, press, startGame, stopGame } from './invaders-game'
+import { current, feed, openGame, press, setRoom, stopGame } from './invaders-game'
 import { InvadersPane } from './invaders-pane'
 
 const PANE = 'puppet-coder'
@@ -151,7 +151,7 @@ export const register: Register = (on, options) => {
   })
 
   on('command.run', { command: INVADERS }, async $ => {
-    startGame($)
+    openGame($)
     await $.ui.open({ id: INVADERS, title: 'Invaders', focus: true, closeOnEscape: true, rows: 20 })
 
     return { text: 'Invaders opened. a/d move, f fires, p pauses, Esc closes.' }
@@ -164,6 +164,7 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: INVADERS }, async ($, e) => (
+    setRoom(e.props.bodyColumns),
     <InvadersPane ui={$.ui.resolve(e)} game={current()} columns={e.props.bodyColumns} onPress={kind => press($, kind)} />
   ))
 

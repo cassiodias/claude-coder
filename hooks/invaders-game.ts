@@ -10,22 +10,35 @@ export type Press = 'left' | 'right' | 'fire' | 'pause' | 'restart'
 
 export const BOARD_COLUMNS = 36
 export const BOARD_ROWS = 14
+// The pane must show the whole board and a column either side, or the game holds still.
+export const MIN_COLUMNS = BOARD_COLUMNS + 2
 const TICK_MS = 100
 const MOVE = 2
 
 let game: Game | undefined
 let pending: Input = NO_INPUT
 let timer: Timer | undefined
+let room = MIN_COLUMNS
 
 export function startGame($: EngineInterface): void {
   game = newGame(BOARD_COLUMNS, BOARD_ROWS)
   pending = NO_INPUT
   timer ??= $.clock.every(TICK_MS, () => {
-    if (!game) return
+    if (!game || room < MIN_COLUMNS) return
     game = step(game, pending)
     pending = NO_INPUT
     $.ui.invalidate('ui.render')
   })
+}
+
+// A game in progress carries on; only a finished or missing one starts over.
+export function openGame($: EngineInterface): void {
+  if (!game || game.phase === 'over') startGame($)
+}
+
+// The pane reports its width as it draws, so a board too narrow to see is not played blind.
+export function setRoom(columns: number): void {
+  room = columns
 }
 
 export function stopGame(): void {
