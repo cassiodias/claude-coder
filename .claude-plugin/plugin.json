@@ -1,6 +1,6 @@
 {
   "name": "puppet-coder",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A Claude puppet with glasses codes on a laptop while a slash command you pick runs, its screen showing the real edits and runs",
   "license": "MIT",
   "types": "./types/index.d.ts",
