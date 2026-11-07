@@ -5,10 +5,14 @@ import type { Desk, Display } from '../types'
 import { Coder } from './components'
 import { NO_DESK, sitDown, standUp, work } from './desk'
 import type { Work } from './desk'
+import type { SpawnKind } from './arcade'
+import { current, feed, openGame, press, setRoom, stopGame } from './invaders-game'
+import { InvadersPane } from './invaders-pane'
 
 const PANE = 'puppet-coder'
 const PANE_COLUMNS = 42
 const DONE_MS = 8000
+const INVADERS = 'invaders'
 
 const desk = atom({ plugin: 'puppet-coder', key: 'desk' } as const, NO_DESK, { shape: 'desk-2' })
 
@@ -65,6 +69,15 @@ async function draw($: EngineInterface, ui: Parameters<typeof Coder>[0]['ui']) {
   return <Coder ui={ui} desk={now} tick={tick} sinceShot={tick - shotAt} />
 }
 
+// Claude's work joins an open game: edits send invaders, runs send tough ones, reads give rapid fire.
+function spawnOf(tool: string): SpawnKind | undefined {
+  if (tool === 'Edit' || tool === 'Write') return 'invader'
+  if (tool === 'Bash') return 'tough'
+  if (tool === 'Read') return 'rapid'
+
+  return undefined
+}
+
 function kindOf(e: ToolCallInput): Work {
   if (e.tool === 'Edit' || e.tool === 'Write') return 'edit'
   if (e.tool === 'Bash') return 'run'
@@ -93,6 +106,7 @@ export const register: Register = (on, options) => {
       name: 'coder-demo',
       description: 'Watch the coder work for 20 seconds; add pane or band to try one display',
     })
+    await $.command.register({ name: INVADERS, description: "Play Space Invaders; Claude's tool calls join the game" })
 
     return next(e)
   })
@@ -110,8 +124,11 @@ export const register: Register = (on, options) => {
       return next(e)
     }
     await type($, kindOf(e))
+    const result = await next(e)
+    const kind = spawnOf(e.tool)
+    if (kind && !result.isError) feed(kind)
 
-    return next(e)
+    return result
   })
 
   on('turn.complete', async ($, e, next) => {
@@ -132,6 +149,24 @@ export const register: Register = (on, options) => {
 
     return { text: `The coder sat down in the ${shown}.` }
   })
+
+  on('command.run', { command: INVADERS }, async $ => {
+    openGame($)
+    await $.ui.open({ id: INVADERS, title: 'Invaders', focus: true, closeOnEscape: true, rows: 20 })
+
+    return { text: 'Invaders opened. a/s move, d fires, p pauses, Esc closes.' }
+  })
+
+  on('ui.close', { id: INVADERS }, async ($, e, next) => {
+    stopGame()
+
+    return next(e)
+  })
+
+  on('ui.render', { component: 'Pane', requestId: INVADERS }, async ($, e) => (
+    setRoom(e.props.bodyColumns),
+    <InvadersPane ui={$.ui.resolve(e)} game={current()} columns={e.props.bodyColumns} onPress={kind => press($, kind)} />
+  ))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => draw($, $.ui.resolve(e)))
 

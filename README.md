@@ -45,7 +45,23 @@ That's it. Next time one of those commands runs, the coder sits down by itself a
 - The header counts the command's edits (Edit, Write), runs (Bash) and reads (Read).
 - When the command is done the game stops, the scene greys out with a ✓, and it clears a few seconds later.
 
-## Options
+## Play it yourself: `/invaders`
+
+Type `/invaders` to open a pane with a Space Invaders you play. The pane takes the keyboard as soon as it opens, so there's no need to click it.
+
+| Key | Button | Does |
+| --- | --- | --- |
+| `a` | `◀` | move left |
+| `s` | `▶` | move right |
+| `d` | `fire` | fire |
+| `p` | `pause` | pause or resume |
+| `r` | `restart` | new game, after game over |
+| `Esc` | | close the pane and end the game |
+
+Claude's work joins in while you play: each file it edits sends an invader, each command it runs sends a tough one that takes two hits, and each file it reads gives you rapid fire for 10 seconds.
+
+You start with 3 lives, and each cleared wave comes back faster. In apps without a keyboard, tap the buttons.
+
 
 | Setting | Values | Default |
 | --- | --- | --- |
