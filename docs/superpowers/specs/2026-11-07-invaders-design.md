@@ -1,7 +1,7 @@
 # /invaders: a playable Space Invaders in puppet-coder
 
 Date: 2026-11-07
-Status: approved design, awaiting spec review
+Status: approved, revision 2 (after the focus probe)
 
 ## Goal
 
@@ -12,6 +12,15 @@ a busy turn changes the game.
 
 The existing auto-play band and pane (`/coder-demo` and the configured
 commands) stay as they are.
+
+## Why revision 2
+
+The probe in plan Task 1 showed that a `Client` surface module's `onKey`
+receives no keys in this terminal. It failed with a `focus: true` pane, after
+a click, and under `CLAUDE_CODE_NO_FLICKER=1` fullscreen, although the kit
+test proved the probe code itself works. `Button` hotkeys (one lowercase letter
+each) in a pane opened with `focus: true` **do** work with no click. So the
+game runs in the hooks module and takes its input from hotkey buttons.
 
 ## Scope
 
@@ -24,146 +33,138 @@ In:
 - Invaders fire back. The game starts with 3 lives. When the grid is cleared,
   the next wave starts faster. The game is over when lives reach 0 or the
   invaders reach the ship's row.
-- Score and lives shown in a one-line header.
-- Claude link: each `tool.call` the mod sees adds to the game while it runs (see "Claude events" below).
-- Surfaces: terminal and desktop, which draw `Client`. On mobile and VS Code
-  the pane shows one line: "/invaders needs the terminal or desktop app".
+- A one-line header with score, lives and wave.
+- Claude link: each `tool.call` the mod sees while a game is running adds to
+  that game.
+- Every surface. Buttons are drawn everywhere, so desktop, VS Code and mobile
+  play by pressing or tapping the buttons.
 
-Out (YAGNI): shields, bonus saucer, saved high score, sound, mouse control.
+Out (YAGNI): shields, bonus saucer, saved high score, sound, arrow keys,
+mouse, `Client`.
 
 ## Controls
 
-| Key | Action |
-| --- | --- |
-| ← / → or a / d | move ship |
-| space | fire |
-| p | pause / resume |
-| r | restart (only on game over) |
-| Esc | closes the pane (engine-owned; never reaches the game) |
+The buttons sit in one row under the board. Each one has a hotkey, which works
+while the pane holds the keyboard (`focus: true`, so no click is needed).
+
+| Hotkey | Button | Action |
+| --- | --- | --- |
+| a | `◀` | move ship 2 cells left |
+| d | `▶` | move ship 2 cells right |
+| f | `fire` | fire |
+| p | `pause` / `resume` | toggle pause |
+| r | `restart` | new game (drawn only on game over) |
+| Esc | (engine) | closes the pane, which ends the game |
+
+Arrow keys move the focus between buttons (engine behaviour). Holding a hotkey
+repeats it if the terminal sends key repeats.
 
 ## Architecture
 
-Three units, each with one job:
-
 ### `hooks/arcade.ts`: pure game logic
 
-No UI, no engine imports. Deterministic given its inputs, so it can be unit
-tested.
+No UI, no engine imports. Deterministic given its inputs.
 
 ```ts
-export type Input = { left: boolean; right: boolean; fire: boolean }
+export type Input = { left: number; right: number; fire: boolean } // cells this tick
 export type SpawnKind = 'invader' | 'tough' | 'rapid'
-export type Game = { /* board size, ship x, shots, invaders, bombs, lives, score, wave, tick, phase: 'playing' | 'paused' | 'over', rapidUntil */ }
-
 export function newGame(columns: number, rows: number, seed?: number): Game
-export function step(game: Game, input: Input): Game   // one 50 ms tick
+export function step(game: Game, input: Input): Game   // one 100 ms tick
 export function spawn(game: Game, kind: SpawnKind): Game
 export function togglePause(game: Game): Game
-export function cells(game: Game): string[]             // rows of text to draw
+export function cells(game: Game): string[]
 ```
 
 - The march speed comes from `wave` and the number of invaders left. Fewer
-  invaders and higher waves step more often, as in the classic.
+  invaders and higher waves step more often.
 - Bombs use a small seeded RNG kept in `Game`, so tests can repeat a game.
 - `tough` invaders take 2 hits and are drawn differently.
-- `rapid` allows 3 player shots on screen for 10 s (200 ticks).
+- `rapid` allows 3 player shots on screen for 10 s (100 ticks).
 - `spawn('invader' | 'tough')` puts the new invader in the top-row slot
-  closest to the formation's edge. If the top row is full it does nothing,
-  so the game can't become impossible.
+  closest to the formation's edge. If the top row is full it does nothing.
 
-### `hooks/invaders-client.tsx`: the `Client` surface module
+### `hooks/invaders-game.ts`: the running game (hooks side)
 
-- On the first call (`state === undefined`), it creates the game with
-  `newGame(columns, rows)`, starts `surface.every(50, tick)` once, and sets the
-  `onKey` listener.
-- Keys set flags in an input. The tick calls `step`, clears `fire`, and
-  `setState`s. A held key is treated as tapped, because terminals send key
-  repeats rather than key-up events. Movement is 1 cell per key event, plus
-  1 cell per tick while that direction was pressed in the last 150 ms.
-- Props: `{ claudeEvents: { n: number; kind: SpawnKind }[] }`, a running list
-  capped at the last 20. The module remembers the last `n` it applied and
-  calls `spawn` for each newer entry. On mount it starts from the newest `n` already in the
-  list, so reopening the pane doesn't replay old events.
-- Draws a header `Text` (score · lives · wave · "p pause") and the board as
-  one `Text` per row from `cells(game)`, coloring invaders, ship, shots and
-  bombs.
-- If the region is under 30 columns or 12 rows, it draws "widen the pane to
-  play" instead and pauses.
+Module-level state: the current `Game | undefined`, the pending `Input`, and
+the clock `Timer`.
+
+- `startGame($)` creates `newGame(36, 14)` and starts
+  `$.clock.every(100, …)`. Each tick calls `step` with the pending input,
+  clears it, and calls `$.ui.invalidate('ui.render')`. The game keeps the
+  last result.
+- `press(kind)` adds to the pending input: `left`/`right` add 2 (capped at 2
+  per tick), `fire` sets fire. `pause` calls `togglePause`, and `restart`
+  calls `newGame` (only when `over`).
+- `feed(kind: SpawnKind)` calls `spawn` on the running game. It does nothing
+  when there's no game or the game isn't `playing`.
+- `stopGame()` cancels the timer and drops the game.
+- Read access: `current()` returns the game for drawing.
+
+A mod reload (development only) loses the module state, so the open pane shows
+"press r to start" and `r` starts a fresh game.
+
+### `hooks/invaders-pane.tsx`: drawing
+
+`InvadersPane({ ui, game, columns })` returns:
+
+- the header `score <n> · lives <n> · wave <n>`, or
+  `game over · score <n>` on game over, plus `paused` while paused
+- one `Text` per row of `cells(game)`
+- the button row: `◀` (a), `▶` (d), `fire` (f), `pause`/`resume` (p), and
+  `restart` (r) only on game over
+
+Each button's `onPress` calls `press(...)`. With no game it draws
+`press r to start` and only the `restart` button. If `columns < 38` it draws
+`widen the pane to play` instead of the board.
 
 ### `hooks/register.tsx` additions
 
 - `session.start`: also registers `invaders` ("Play Space Invaders; Claude's
   tool calls join the game").
-- `command.run` for `invaders`: `$.ui.open({ id: 'invaders', title:
-  'Invaders', focus: true, closeOnEscape: true })`, answers `{ text: 'Invaders
-  opened. ←/→ move, space fires, Esc closes.' }`.
-- `ui.render` for `{ component: 'Pane', requestId: 'invaders' }`: on
-  terminal/desktop it draws `<Client key="game" module="./invaders-client.tsx"
-  props={{ claudeEvents }} flexGrow={1} />`, otherwise the one-line notice.
-- The existing `tool.call` hook also appends to the `invaders` state value
-  (always; it's capped at 20 entries, and a closed pane has no `Client` to read
-  it, so the hook doesn't need to track whether the pane is open):
-  - Edit / Write → `invader`
-  - Bash → `tough`
-  - Read → `rapid`
-  - other tools → nothing
+- `command.run` for `invaders`: `startGame($)`, then `$.ui.open({ id:
+  'invaders', title: 'Invaders', focus: true, closeOnEscape: true, rows: 20
+  })`. It answers `{ text: 'Invaders opened. a/d move, f fires, p pauses, Esc
+  closes.' }`.
+- `ui.render` for `{ component: 'Pane', requestId: 'invaders' }`: draws
+  `InvadersPane` with `e.props.bodyColumns`.
+- `ui.close` for `{ id: 'invaders' }`: `stopGame()`, then `next(e)`.
+- The existing `tool.call` hook, after `await next(e)`, calls `feed(kind)`
+  unless the result is an error. Edit / Write → `invader`, Bash → `tough`,
+  Read → `rapid`, other tools → nothing. The puppet's own `type(...)` call
+  stays as it is.
 
-  It appends after `next(e)`, so a denied call adds nothing.
+No `$.state` value and no contract change: the game lives in the hooks
+module, so tool calls feed it directly.
 
-### State contract (`types/index.d.ts`)
+## Risks
 
-```ts
-'puppet-coder': {
-  desk: Shaped<Desk>
-  invaders: { n: number; kind: SpawnKind }[]
-}
-```
-
-`n` only ever goes up within a session. Writes use `update` so two calls in
-one frame both land.
-
-## Data flow
-
-```
-key ──► Client.onKey ──► input flags ──► every(50) ──► step() ──► setState ──► redraw
-tool.call ──► update($.state invaders) ──► Pane ui.render ──► Client props ──► spawn()
-```
-
-Game state never goes through `$`, so a hook reload does not reset a game in
-progress (the `Client` keeps its key).
-
-## Risks and fallbacks
-
-1. **Focus (unproven).** The docs say a `Client` gets keys "while a click has
-   given it the focus". It's not confirmed whether a pane opened with
-   `focus: true` gives the `Client` the keys with no click. The first plan
-   task is a throwaway probe that shows the last key pressed. If a click turns
-   out to be needed, the board shows "click to play" until the first key
-   arrives.
-2. **Esc closes the pane.** That's acceptable: closing ends the game. Pause
-   is `p`.
-3. **Render-loop guard.** The engine unmounts a `Client` that calls `setState`
-   on three renders in a row with no tick or key in between. Only the `every`
-   tick and `onKey` call `setState`; render never does.
-4. **Frame budget.** A call may take at most ~1 s. A 50 ms tick with a board
-   of ~40×16 cells is far under that.
+1. **Render cost.** The pane redraws 10 times a second through `ui.render`.
+   The existing band already runs a 10 fps invalidate loop.
+2. **Reload loses the game.** This only happens during development, and the
+   pane recovers with `r`.
+3. **Esc closes the pane.** Closing ends the game; `p` pauses.
 
 ## Testing
 
 - `tests/arcade.test.ts` (unit tests, pure):
-  - moving the ship stops at the walls
+  - the ship stops at the walls
   - a shot hits and removes an invader and adds score
+  - fire is ignored while the shot limit is on screen
   - a bomb on the ship costs a life
   - clearing the grid starts wave 2 at a faster march
-  - invaders reaching the bottom ends the game
-  - `spawn` fills the top-row edge slot, and is ignored when that row is full
+  - invaders reaching the bottom end the game
+  - `spawn` fills the top-row edge slot, and is ignored when the top row is
+    full
   - `tough` takes 2 hits
-  - `rapid` allows 3 shots and expires after 200 ticks
-- `tests/invaders.test.tsx` (`claude plugin test`), looped over
-  `['terminal', 'desktop']`:
-  - running `/invaders` opens the pane
-  - mounting the pane, sending `right` and space to the `Client` by key, then
-    advancing the mocked clock changes the board
-  - an Edit `tool.call` while the pane is mounted makes the invader count go up
-    on the next frame
-- Manual: run `/invaders` in this session with the mod loaded.
+  - `rapid` allows 3 shots and expires after 100 ticks
+  - the same seed gives the same game
+- `tests/invaders.test.tsx` (`claude plugin test`, looped over
+  `['terminal', 'desktop', 'mobile']`):
+  - `/invaders` opens a focused pane
+  - pressing `▶` then a tick moves the ship
+  - `fire` then a tick shows a shot
+  - `pause` freezes the board
+  - an Edit tool call during a game adds an invader
+  - closing the pane stops the clock
+  - a narrow pane shows `widen the pane to play`
+- Manual: play `/invaders` in this session.
